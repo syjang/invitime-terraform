@@ -198,22 +198,7 @@ module "autoscaling_api" {
 }
 
 # Webapp pipeline
-module "pipeline_webapp" {
-  source            = "../../modules/codepipeline_s3cf"
-  name              = "${local.project}-${local.env}-webapp"
-  github_owner      = "AHPO-PJT"
-  github_repo       = "invitime"
-  github_branch     = "dev"
-  github_oauth_token = var.github_oauth_token
-  source_type       = "S3"
-  s3_source_object_key = "webapp-source.zip"
-  buildspec         = file("${path.module}/webapp-buildspec-s3.yml")
-  bucket_name       = module.site_webapp.bucket_name
-  distribution_id   = module.site_webapp.distribution_id
-  environment_variables = [
-    { name = "VITE_API_URL", value = "https://api-dev.invitime.kr" }
-  ]
-}
+// 웹앱 파이프라인 제거 (ext CodeBuild만 사용)
 
 # Git → CodeBuild(웹앱 빌드 아카이브를 S3에 업로드)
 module "codebuild_webapp" {
@@ -225,9 +210,15 @@ module "codebuild_webapp" {
   github_oauth_token     = var.github_oauth_token
   codeconnections_arn    = "arn:aws:codeconnections:ap-northeast-2:822330924869:connection/8fe44256-51df-40c3-ad88-a8aa6f986bc2"
   ecr_repo_name          = "n/a"
-  buildspec              = file("${path.module}/webapp-buildspec-archive.yml")
-  artifacts_bucket_name  = module.pipeline_webapp.artifacts_bucket_name
-  artifacts_object_name  = "webapp-source.zip"
+  buildspec              = file("${path.module}/webapp-buildspec-s3.yml")
+  artifacts_bucket_name  = ""
+  artifacts_object_name  = ""
+  path_filter            = "^dashboard/.*"
+  extra_environment_variables = [
+    { name = "TARGET_BUCKET", value = module.site_webapp.bucket_name },
+    { name = "DISTRIBUTION_ID", value = module.site_webapp.distribution_id },
+    { name = "VITE_API_URL", value = "https://api-dev.invitime.kr" }
+  ]
 }
 
 # API pipeline
@@ -259,5 +250,6 @@ module "codebuild_api" {
   buildspec              = file("${path.module}/api-buildspec.yml")
   artifacts_object_name  = "api-source.zip"
   artifacts_bucket_name  = module.pipeline_api.artifacts_bucket_name
+  path_filter            = "^api-server/.*"
 }
 

@@ -21,6 +21,12 @@ variable "github_oauth_token" {
   default   = ""
 }
 
+variable "github_connection_arn" {
+  description = "CodeStar Connections ARN for GitHub v2"
+  type        = string
+  default     = ""
+}
+
 variable "fcm_service_account_json" {
   description = "FCM 서비스 계정 JSON 전체 문자열"
   type        = string

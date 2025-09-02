@@ -8,6 +8,12 @@ variable "github_branch" {
 variable "github_oauth_token" {
   type      = string
   sensitive = true
+  default   = ""
+}
+variable "github_connection_arn" {
+  description = "CodeStar Connections connection ARN for GitHub v2"
+  type        = string
+  default     = ""
 }
 variable "source_type" {
   description = "Source provider type: GITHUB or S3"
@@ -93,7 +99,24 @@ resource "aws_codepipeline" "this" {
   stage {
     name = "Source"
     dynamic "action" {
-      for_each = var.source_type == "GITHUB" ? [1] : []
+      for_each = var.source_type == "GITHUB" && var.github_connection_arn != "" ? [1] : []
+      content {
+        name             = "Source"
+        category         = "Source"
+        owner            = "AWS"
+        provider         = "CodeStarSourceConnection"
+        version          = "1"
+        output_artifacts = ["source_output"]
+        configuration = {
+          ConnectionArn    = var.github_connection_arn
+          FullRepositoryId = "${var.github_owner}/${var.github_repo}"
+          BranchName       = var.github_branch
+          DetectChanges    = "true"
+        }
+      }
+    }
+    dynamic "action" {
+      for_each = var.source_type == "GITHUB" && var.github_connection_arn == "" ? [1] : []
       content {
         name             = "Source"
         category         = "Source"

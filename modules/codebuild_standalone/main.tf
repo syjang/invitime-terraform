@@ -17,6 +17,11 @@ variable "codeconnections_arn" {
 }
 variable "ecr_repo_name" { type = string }
 variable "buildspec" { type = string }
+variable "extra_environment_variables" {
+  description = "Additional environment variables for CodeBuild (list of maps with name/value)"
+  type        = list(object({ name = string, value = string }))
+  default     = []
+}
 variable "artifacts_bucket_name" {
   type    = string
   default = ""
@@ -24,6 +29,12 @@ variable "artifacts_bucket_name" {
 variable "artifacts_object_name" {
   type    = string
   default = "api-source.zip"
+}
+
+variable "path_filter" {
+  description = "Regex for affected file paths to trigger build (e.g., ^dashboard/).*"
+  type        = string
+  default     = ""
 }
 
 data "aws_caller_identity" "current" {}
@@ -62,7 +73,7 @@ resource "aws_iam_role_policy" "codebuild" {
           "ecr:CompleteLayerUpload", "ecr:UploadLayerPart",
           "ecr:InitiateLayerUpload", "ecr:PutImage",
           "logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents",
-          "s3:*", "sts:GetCallerIdentity"
+          "s3:*", "sts:GetCallerIdentity", "cloudfront:CreateInvalidation"
         ], Resource = "*" },
       {
         Effect   = "Allow",
@@ -91,6 +102,8 @@ resource "aws_codebuild_source_credential" "github_pat" {
 resource "aws_codebuild_project" "this" {
   name         = "${var.name}-ext-codebuild"
   service_role = aws_iam_role.codebuild.arn
+  # 브랜치 지정(수동 트리거 시 적용). Webhook과 함께 사용 가능
+  source_version = "refs/heads/${var.github_branch}"
 
   artifacts {
     type      = "S3"
@@ -116,6 +129,13 @@ resource "aws_codebuild_project" "this" {
       name  = "IMAGE_TAG"
       value = "latest"
     }
+    dynamic "environment_variable" {
+      for_each = var.extra_environment_variables
+      content {
+        name  = environment_variable.value.name
+        value = environment_variable.value.value
+      }
+    }
   }
 
   source {
@@ -129,6 +149,28 @@ resource "aws_codebuild_project" "this" {
       content {
         type     = "CODECONNECTIONS"
         resource = var.codeconnections_arn
+      }
+    }
+  }
+}
+
+# GitHub 푸시 트리거(Webhook) - 지정한 브랜치만
+resource "aws_codebuild_webhook" "this" {
+  project_name = aws_codebuild_project.this.name
+  filter_group {
+    filter {
+      type    = "EVENT"
+      pattern = "PUSH"
+    }
+    filter {
+      type    = "BASE_REF"
+      pattern = "^refs/heads/${var.github_branch}$"
+    }
+    dynamic "filter" {
+      for_each = var.path_filter != "" ? [1] : []
+      content {
+        type    = "FILE_PATH"
+        pattern = var.path_filter
       }
     }
   }
