@@ -72,6 +72,13 @@ resource "aws_s3_bucket" "artifacts" {
   force_destroy = true
 }
 
+resource "aws_s3_bucket_versioning" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
 ## Externalized build: CodePipeline은 S3 Source → ECS Deploy만 수행
 
 resource "aws_codepipeline" "this" {

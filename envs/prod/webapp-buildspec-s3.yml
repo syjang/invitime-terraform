@@ -13,7 +13,7 @@ phases:
   post_build:
     commands:
       - echo Sync to S3...
-      - aws s3 sync dashboard/build s3://$TARGET_BUCKET/ --delete
+      - aws s3 sync dashboard/dist s3://$TARGET_BUCKET/ --delete
       - echo Create CloudFront invalidation
       - aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
 artifacts:
