@@ -1,0 +1,24 @@
+version: 0.2
+phases:
+  install:
+    commands:
+      - npm i -g pnpm || npm i -g npm@latest
+  build:
+    commands:
+      - echo Build started on `date`
+      - cd dashboard
+      - npm ci || npm i
+      - npm run build || npm run build --if-present
+      - cd ..
+  post_build:
+    commands:
+      - echo Sync to S3...
+      - aws s3 sync dashboard/dist s3://$TARGET_BUCKET/ --delete
+      - echo Create CloudFront invalidation
+      - aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+artifacts:
+  files:
+    - '**/*'
+  base-directory: 'dashboard/dist'
+
+
