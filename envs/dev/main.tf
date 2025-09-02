@@ -198,7 +198,7 @@ module "rds" {
   source                 = "../../modules/rds_mysql"
   name_prefix            = "${local.project}-${local.env}"
   vpc_id                 = module.network.vpc_id
-  subnet_ids             = module.network.public_subnet_ids
+  subnet_ids             = module.network.private_subnet_ids
   allowed_ingress_sg_ids = [module.network.api_sg_id]
   db_name                = "invitime"
   db_username            = "invitime"
@@ -208,8 +208,7 @@ module "rds" {
   engine_version         = "8.0"
   deletion_protection    = false
   backup_retention       = 1
-  publicly_accessible    = true
-  allowed_cidr_ingress   = ["121.133.239.254/32"]
+  publicly_accessible    = false
 }
 
   # 웹앱은 S3+CloudFront로 전환되어 오토스케일링 불필요

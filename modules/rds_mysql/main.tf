@@ -51,12 +51,8 @@ resource "random_password" "db" {
 }
 
 resource "aws_db_subnet_group" "this" {
-  name_prefix = "${var.name_prefix}-db-subnets-"
-  subnet_ids  = var.subnet_ids
-
-  lifecycle {
-    create_before_destroy = true
-  }
+  name       = "${var.name_prefix}-db-subnets"
+  subnet_ids = var.subnet_ids
 }
 
 resource "aws_security_group" "rds" {
@@ -105,6 +101,13 @@ resource "aws_db_instance" "this" {
   skip_final_snapshot     = true
   storage_encrypted       = true
   apply_immediately       = true
+
+  lifecycle {
+    ignore_changes = [
+      db_subnet_group_name,
+      publicly_accessible
+    ]
+  }
 }
 
 resource "aws_secretsmanager_secret" "db" {
