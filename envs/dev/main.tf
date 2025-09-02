@@ -98,15 +98,14 @@ module "service_api_with_tg" {
   subnet_ids          = module.network.private_subnet_ids
   security_group_ids  = [module.network.api_sg_id]
   target_group_arn    = module.alb.tg_api_arn
-  task_cpu            = 256
-  task_memory         = 512
+  task_cpu            = 512
+  task_memory         = 1024
   assign_public_ip    = false
   log_group_name      = "/ecs/${local.project}-${local.env}-api"
   environment = {
     ENV                               = local.env
     APP_NAME                          = "InviTime API"
     APP_VERSION                       = "1.0.0"
-    DEBUG                             = "True"
     HOST                              = "0.0.0.0"
     PORT                              = "8000"
     DB_ECHO                           = "False"
@@ -122,7 +121,33 @@ module "service_api_with_tg" {
     UPLOAD_ALLOWED_EXTENSIONS         = "[\".pdf\", \".jpg\", \".jpeg\", \".png\", \".doc\", \".docx\"]"
     LOCAL_UPLOAD_DIR                  = "uploads"
   }
-  secret_json_map = local.api_secret_json_map
+  secret_json_map = merge(local.api_secret_json_map, {
+    DB_USER     = { secret_arn = module.rds.secret_arn, key = "username" }
+    DB_PASSWORD = { secret_arn = module.rds.secret_arn, key = "password" }
+    DB_HOST     = { secret_arn = module.rds.secret_arn, key = "host" }
+    DB_PORT     = { secret_arn = module.rds.secret_arn, key = "port" }
+    DB_NAME     = { secret_arn = module.rds.secret_arn, key = "dbname" }
+  })
+  task_policy_json = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:PutObject","s3:GetObject","s3:DeleteObject","s3:ListBucket"
+        ],
+        Resource = [
+          "arn:aws:s3:::invitime-uploads",
+          "arn:aws:s3:::invitime-uploads/*"
+        ]
+      },
+      {
+        Effect = "Allow",
+        Action = ["ses:SendEmail","ses:SendRawEmail"],
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 resource "random_password" "app_secret" {
@@ -173,7 +198,7 @@ module "rds" {
   source                 = "../../modules/rds_mysql"
   name_prefix            = "${local.project}-${local.env}"
   vpc_id                 = module.network.vpc_id
-  subnet_ids             = module.network.private_subnet_ids
+  subnet_ids             = module.network.public_subnet_ids
   allowed_ingress_sg_ids = [module.network.api_sg_id]
   db_name                = "invitime"
   db_username            = "invitime"
@@ -183,6 +208,8 @@ module "rds" {
   engine_version         = "8.0"
   deletion_protection    = false
   backup_retention       = 1
+  publicly_accessible    = true
+  allowed_cidr_ingress   = ["121.133.239.254/32"]
 }
 
   # 웹앱은 S3+CloudFront로 전환되어 오토스케일링 불필요

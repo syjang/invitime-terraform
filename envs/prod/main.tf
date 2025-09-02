@@ -103,7 +103,6 @@ module "service_api_with_tg" {
     ENV                               = local.env
     APP_NAME                          = "InviTime API"
     APP_VERSION                       = "1.0.0"
-    DEBUG                             = "False"
     HOST                              = "0.0.0.0"
     PORT                              = "8000"
     DB_ECHO                           = "False"
@@ -119,7 +118,33 @@ module "service_api_with_tg" {
     UPLOAD_ALLOWED_EXTENSIONS         = "[\".pdf\", \".jpg\", \".jpeg\", \".png\", \".doc\", \".docx\"]"
     LOCAL_UPLOAD_DIR                  = "uploads"
   }
-  secret_json_map = local.api_secret_json_map
+  secret_json_map = merge(local.api_secret_json_map, {
+    DB_USER     = { secret_arn = module.rds.secret_arn, key = "username" }
+    DB_PASSWORD = { secret_arn = module.rds.secret_arn, key = "password" }
+    DB_HOST     = { secret_arn = module.rds.secret_arn, key = "host" }
+    DB_PORT     = { secret_arn = module.rds.secret_arn, key = "port" }
+    DB_NAME     = { secret_arn = module.rds.secret_arn, key = "dbname" }
+  })
+  task_policy_json = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:PutObject","s3:GetObject","s3:DeleteObject","s3:ListBucket"
+        ],
+        Resource = [
+          "arn:aws:s3:::invitime-uploads",
+          "arn:aws:s3:::invitime-uploads/*"
+        ]
+      },
+      {
+        Effect = "Allow",
+        Action = ["ses:SendEmail","ses:SendRawEmail"],
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 resource "random_password" "app_secret" {

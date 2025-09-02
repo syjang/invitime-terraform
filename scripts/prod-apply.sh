@@ -46,13 +46,26 @@ docker run --rm \
   hashicorp/terraform:latest init -migrate-state
 
 
+# 선택적 타겟(-target) 인자 처리: 공백/콤마 구분 모두 허용
+TARGET_ARGS=()
+if [[ $# -gt 0 ]]; then
+  for raw in "$@"; do
+    IFS=',' read -r -a arr <<< "$raw"
+    for t in "${arr[@]}"; do
+      t_trimmed="${t//[[:space:]]/}"
+      if [[ -n "$t_trimmed" ]]; then TARGET_ARGS+=( -target="$t_trimmed" ); fi
+    done
+  done
+  echo "[INFO] terraform apply targets: ${TARGET_ARGS[*]}"
+fi
+
 echo "[INFO] terraform apply (Docker, latest)"
 docker run --rm \
   -v "$ROOT_DIR":/workspace \
   -w /workspace/envs/prod \
   -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION \
   -e TF_VAR_fcm_service_account_json="$FCM_JSON" \
-  hashicorp/terraform:latest apply -auto-approve ${TF_VAR_ARGS[@]:-}
+  hashicorp/terraform:latest apply -auto-approve ${TARGET_ARGS[@]:-}
 
 echo "[OK] prod 배포 완료"
 

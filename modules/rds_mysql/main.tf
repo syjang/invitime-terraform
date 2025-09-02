@@ -34,14 +34,29 @@ variable "db_username" {
   default = "appuser"
 }
 
+variable "publicly_accessible" {
+  type        = bool
+  default     = false
+}
+
+variable "allowed_cidr_ingress" {
+  description = "Optional list of CIDR blocks allowed to access MySQL (3306). Use cautiously (e.g., [\"1.2.3.4/32\"])."
+  type        = list(string)
+  default     = []
+}
+
 resource "random_password" "db" {
   length  = 20
   special = true
 }
 
 resource "aws_db_subnet_group" "this" {
-  name       = "${var.name_prefix}-db-subnets"
-  subnet_ids = var.subnet_ids
+  name_prefix = "${var.name_prefix}-db-subnets-"
+  subnet_ids  = var.subnet_ids
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_security_group" "rds" {
@@ -54,6 +69,15 @@ resource "aws_security_group" "rds" {
     to_port         = 3306
     protocol        = "tcp"
     security_groups = var.allowed_ingress_sg_ids
+  }
+  dynamic "ingress" {
+    for_each = var.allowed_cidr_ingress
+    content {
+      from_port   = 3306
+      to_port     = 3306
+      protocol    = "tcp"
+      cidr_blocks = [ingress.value]
+    }
   }
   egress {
     from_port   = 0
@@ -77,7 +101,7 @@ resource "aws_db_instance" "this" {
   multi_az                = var.multi_az
   deletion_protection     = var.deletion_protection
   backup_retention_period = var.backup_retention
-  publicly_accessible     = false
+  publicly_accessible     = var.publicly_accessible
   skip_final_snapshot     = true
   storage_encrypted       = true
   apply_immediately       = true

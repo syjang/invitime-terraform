@@ -163,7 +163,7 @@ resource "aws_codebuild_webhook" "this" {
       pattern = "PUSH"
     }
     filter {
-      type    = "BASE_REF"
+      type    = "HEAD_REF"
       pattern = "^refs/heads/${var.github_branch}$"
     }
     dynamic "filter" {

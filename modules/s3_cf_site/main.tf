@@ -24,18 +24,25 @@ resource "aws_cloudfront_origin_access_identity" "oai" {
   comment = "OAI for ${var.name_prefix}"
 }
 
+data "aws_iam_policy_document" "site" {
+  statement {
+    sid     = "AllowCloudFrontRead"
+    effect  = "Allow"
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.site.arn}/*"
+    ]
+    principals {
+      type        = "CanonicalUser"
+      identifiers = [aws_cloudfront_origin_access_identity.oai.s3_canonical_user_id]
+    }
+  }
+}
+
 resource "aws_s3_bucket_policy" "site" {
-  bucket = aws_s3_bucket.site.id
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Sid = "AllowCloudFrontRead",
-      Effect = "Allow",
-      Principal = { CanonicalUser = aws_cloudfront_origin_access_identity.oai.s3_canonical_user_id },
-      Action = ["s3:GetObject"],
-      Resource = ["${aws_s3_bucket.site.arn}/*"]
-    }]
-  })
+  bucket     = aws_s3_bucket.site.id
+  policy     = data.aws_iam_policy_document.site.json
+  depends_on = [aws_cloudfront_origin_access_identity.oai, aws_s3_bucket_public_access_block.site]
 }
 
 resource "aws_cloudfront_distribution" "this" {
