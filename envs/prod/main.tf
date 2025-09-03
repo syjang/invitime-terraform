@@ -117,6 +117,7 @@ module "service_api_with_tg" {
     UPLOAD_MAX_SIZE_MB                = "10"
     UPLOAD_ALLOWED_EXTENSIONS         = "[\".pdf\", \".jpg\", \".jpeg\", \".png\", \".doc\", \".docx\"]"
     LOCAL_UPLOAD_DIR                  = "uploads"
+    RUN_MIGRATIONS                    = "true"
   }
   secret_json_map = merge(local.api_secret_json_map, {
     DB_USER     = { secret_arn = module.rds.secret_arn, key = "username" }
