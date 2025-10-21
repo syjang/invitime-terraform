@@ -92,7 +92,7 @@ module "service_api_with_tg" {
   source              = "../../modules/ecs_service"
   name                = "${local.project}-api"
   cluster_arn         = module.ecs_cluster.cluster_arn
-  container_image     = module.ecr_api.repository_url
+  container_image     = "${module.ecr_api.repository_url}:dev-latest"
   container_port      = 8000
   desired_count       = 1
   subnet_ids          = module.network.private_subnet_ids
@@ -128,6 +128,8 @@ module "service_api_with_tg" {
     DB_HOST     = { secret_arn = module.rds.secret_arn, key = "host" }
     DB_PORT     = { secret_arn = module.rds.secret_arn, key = "port" }
     DB_NAME     = { secret_arn = module.rds.secret_arn, key = "dbname" }
+    SMTP_PASSWORD = { secret_arn = data.aws_secretsmanager_secret.smtp.arn, key = "password" }
+    SMTP_USERNAME = { secret_arn = data.aws_secretsmanager_secret.smtp.arn, key = "username" }
   })
   task_policy_json = jsonencode({
     Version = "2012-10-17",
@@ -165,6 +167,11 @@ resource "aws_secretsmanager_secret_version" "app_secret" {
   secret_string = jsonencode({ secret_key = random_password.app_secret.result })
 }
 
+# SMTP secret (existing resource)
+data "aws_secretsmanager_secret" "smtp" {
+  name = "invitime-smtp"
+}
+
 # FCM service account secret (optional)
 data "aws_secretsmanager_secret" "fcm" {
   count = var.fcm_service_account_json == null ? 0 : 1
@@ -199,14 +206,14 @@ module "rds" {
   source                 = "../../modules/rds_mysql"
   name_prefix            = "${local.project}-${local.env}"
   vpc_id                 = module.network.vpc_id
-  subnet_ids             = module.network.private_subnet_ids
+  subnet_ids             = ["subnet-0449e94951e76e7fd", "subnet-0b48e484f6b16652b"]
   allowed_ingress_sg_ids = [module.network.api_sg_id]
   db_name                = "invitime"
   db_username            = "invitime"
   instance_class         = "db.t3.micro"
   allocated_storage      = 20
   multi_az               = false
-  engine_version         = "8.0"
+  engine_version         = "8.4.6"
   deletion_protection    = false
   backup_retention       = 1
   publicly_accessible    = false

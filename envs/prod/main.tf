@@ -48,13 +48,13 @@ module "alb" {
   certificate_arn   = data.aws_acm_certificate.alb.arn
   web_port          = 3000
   api_port          = 8000
-  web_host_headers  = ["app.invitime.kr"]
+  web_host_headers  = []
   api_host_headers  = ["api.invitime.kr"]
 }
 
 resource "aws_route53_record" "app_prod" {
   zone_id = "Z08466659BE3IFKFX3JV"
-  name    = "app.invitime.kr"
+  name    = "invitime.kr"
   type    = "A"
   alias {
     name                   = module.site_webapp.distribution_domain_name
@@ -77,7 +77,7 @@ resource "aws_route53_record" "alb_alias_api" {
 module "site_webapp" {
   source         = "../../modules/s3_cf_site"
   name_prefix    = "${local.project}-${local.env}-webapp"
-  domain_names   = ["app.invitime.kr"]
+  domain_names   = ["invitime.kr"]
   certificate_arn = data.aws_acm_certificate.cf.arn
   providers = {
     aws            = aws
@@ -89,7 +89,7 @@ module "service_api_with_tg" {
   source              = "../../modules/ecs_service"
   name                = "${local.project}-${local.env}-api"
   cluster_arn         = module.ecs_cluster.cluster_arn
-  container_image     = data.aws_ecr_repository.api.repository_url
+  container_image     = "${data.aws_ecr_repository.api.repository_url}:prod-latest"
   container_port      = 8000
   desired_count       = 2
   subnet_ids          = module.network.private_subnet_ids
@@ -108,7 +108,7 @@ module "service_api_with_tg" {
     DB_ECHO                           = "False"
     ALGORITHM                         = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES       = "1440"
-    CORS_ORIGINS                      = "[\"https://app.invitime.kr\"]"
+    CORS_ORIGINS                      = "[\"https://invitime.kr\"]"
     AWS_REGION                        = "ap-northeast-2"
     S3_BUCKET_NAME                    = "invitime-uploads"
     S3_ENDPOINT_URL                   = ""
@@ -125,6 +125,8 @@ module "service_api_with_tg" {
     DB_HOST     = { secret_arn = module.rds.secret_arn, key = "host" }
     DB_PORT     = { secret_arn = module.rds.secret_arn, key = "port" }
     DB_NAME     = { secret_arn = module.rds.secret_arn, key = "dbname" }
+    SMTP_PASSWORD = { secret_arn = data.aws_secretsmanager_secret.smtp.arn, key = "password" }
+    SMTP_USERNAME = { secret_arn = data.aws_secretsmanager_secret.smtp.arn, key = "username" }
   })
   task_policy_json = jsonencode({
     Version = "2012-10-17",
@@ -160,6 +162,11 @@ resource "aws_secretsmanager_secret" "app_secret" {
 resource "aws_secretsmanager_secret_version" "app_secret" {
   secret_id     = aws_secretsmanager_secret.app_secret.id
   secret_string = jsonencode({ secret_key = random_password.app_secret.result })
+}
+
+# SMTP secret (existing resource)
+data "aws_secretsmanager_secret" "smtp" {
+  name = "invitime-smtp"
 }
 
 # FCM service account secret (optional) - 이미 존재하는 시크릿을 조회하고 버전만 생성
@@ -217,7 +224,7 @@ module "rds" {
   multi_az               = true
   deletion_protection    = true
   backup_retention       = 7
-  engine_version         = "8.0"
+  engine_version         = "8.4.6"
 }
 
 // 웹앱 파이프라인 제거 (ext CodeBuild만 사용)

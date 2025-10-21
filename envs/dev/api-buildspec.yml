@@ -8,18 +8,18 @@ phases:
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
       - REPO_URI=$ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
-      - IMAGE_TAG=${COMMIT_HASH:=latest}
+      - IMAGE_TAG=dev-${COMMIT_HASH}
   build:
     commands:
       - echo Build Started on `date`
       - echo Building the Docker image...
       - cd api-server
-      - docker build -t $REPO_URI:$IMAGE_TAG -t $REPO_URI:latest .
+      - docker build -t $REPO_URI:$IMAGE_TAG -t $REPO_URI:dev-latest .
   post_build:
     commands:
       - echo Pushing the Docker image...
       - docker push $REPO_URI:$IMAGE_TAG
-      - docker push $REPO_URI:latest
+      - docker push $REPO_URI:dev-latest
       - cd ..
       - printf '[{"name":"%s","imageUri":"%s"}]' "invitime-api" "$REPO_URI:$IMAGE_TAG" > imagedefinitions.json
 artifacts:

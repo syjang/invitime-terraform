@@ -5,7 +5,7 @@ variable "allowed_ingress_sg_ids" { type = list(string) }
 
 variable "engine_version" {
   type    = string
-  default = "8.0"
+  default = "8.4.6"
 }
 variable "instance_class" {
   type    = string
